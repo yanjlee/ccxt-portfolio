@@ -7,7 +7,7 @@ import time
 from decimal import *
 
 from settings import bitmex_accounts, gdax_accounts, coinbase_accounts, gemini_accounts, bittrex_accounts
-
+from settings import total_deposits, manual_holding_entries
 # Coinbase
 from coinbase.wallet.client import Client as CB_Client
 
@@ -19,23 +19,22 @@ import ccxt
 class CryptoPortfolio:
     def __init__(self):
 
-        self.portfolio_info = {
+        self.portfolio_info = manual_holding_entries
+        self.portfolio_info.update({
             "Bitmex":   [],
             "Gemini":   [],
             "Coinbase": [],
             "GDAX":     [],
-            "Bittrex":  [],  
-            ## Insert any offline wallet balances or crashed Exchange balances
-            # "Trezor":   [{"BTC": 13.37}],
-            # "Kraken":   [{"ETH": 3.00}], 
-            # "Binance":  [{"ETH": 3.00}]  
-        }
+            "Bittrex":  []
+        })
         
         self.bitmex     = None # Using multiple accounts will leave the last Conn assigned here
         self.bittrex    = None  
         self.cb_client  = None
         self.gdax       = None
         self.gemini     = None
+
+        self.bitmex_margin_stake = Decimal(0)
             
         self.load_bitmex_accounts()
         self.load_coinbase_accounts()
@@ -127,6 +126,7 @@ class CryptoPortfolio:
                         # Don't count Leveraged Margin on Bitmex
                         if exchange=="Bitmex":
                             print "Not counting Bitmex margin stakes: "+str(account[coin]['used'])
+                            self.bitmex_margin_stake += self.str_to_XBT( str(account[coin]['used']) )
                             coin_val = self.str_to_XBT( account[coin]['free'] )
                         else:
                             coin_val = self.str_to_XBT( account[coin] )
@@ -206,7 +206,19 @@ if __name__ == "__main__":
 
         print "\n\n Your total Portfolio Value is estimated at: "
         print "%s BTC: ($%d) + $%d => %d" %( "%.3f"%btc_total, btc_usd_value, usd_total, portfolio_value)
-        print "\n\n"
+        print "This is using a BTC value of %d" % (btc_price)
+
+        total_deposits = sum( total_deposits.values() )
+        profits = portfolio_value- Decimal(total_deposits)
+        print "\n\n Your total USD Deposits have been: $%d" % (total_deposits)
+        print "This yields a total profit of: ** $%d **" % (profits)
+        if PV.bitmex_margin_stake > 0:
+            staked_usd = btc_price*PV.bitmex_margin_stake
+            print "Currently staked bitmex margin is %d, ($%d) for profit of $%d" % (PV.bitmex_margin_stake, staked_usd, profits+staked_usd)
+
+        print "\n\nThis is based on current holdings and price of those holdings when converted to BTC."
+        print "So it is net of all transaction fees\n"
+        
         ## Print holdings on each Exchange
         # print json.dumps(PV.portfolio_info,  indent=2)
         # PV.print_sums( balances )
