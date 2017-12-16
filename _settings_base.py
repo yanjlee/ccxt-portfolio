@@ -1,4 +1,9 @@
 
+from decimal import *
+
+# Update this.
+manual_btc_price = Decimal('18000')
+
 ## Insert any offline wallet balances or balances on Exchange currently down
 manual_holding_entries = {
     # "Trezor":   [{"BTC": 10000.5}],
@@ -11,9 +16,9 @@ manual_holding_entries = {
 # Keys do not matter, number values will be summed.
 # Adding each tx value will let you track your own history. 
 total_deposits = {
-    "coinbase": 1014.90 + 313+4301 + 918.49+1500  -1500-423.70, 
-    # "gdax": ,
-    "gemini": 10000
+    "coinbase": 1014.90 + 313+4301 + 918.49+1500  -1500-423.70 + 1525 + 1087
+    # ,"gdax": 123 + 456
+    ,"gemini": 10000
 }
 
 ## Multiple accounts are supported for all exchanges. Use the same format shown for Bitmex.

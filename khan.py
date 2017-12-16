@@ -7,7 +7,7 @@ import time
 from decimal import *
 
 from settings import bitmex_accounts, gdax_accounts, coinbase_accounts, gemini_accounts, bittrex_accounts
-from settings import total_deposits, manual_holding_entries
+from settings import total_deposits, manual_holding_entries, manual_btc_price
 # Coinbase
 from coinbase.wallet.client import Client as CB_Client
 
@@ -30,13 +30,15 @@ class CryptoPortfolio:
         
         self.bitmex     = None # Using multiple accounts will leave the last Conn assigned here
         self.bittrex    = None  
+        self.default_bittrex = ccxt.bittrex()
         self.cb_client  = None
         self.gdax       = None
         self.gemini     = None
 
         self.bitmex_margin_stake = Decimal(0)
             
-        self.load_bitmex_accounts()
+        try: self.load_bitmex_accounts() 
+        except Exception, e: print("Bitmex error: "+str(e) )
         self.load_coinbase_accounts()
         self.load_gdax_accounts()
         self.load_gemini_accounts()
@@ -64,7 +66,10 @@ class CryptoPortfolio:
             self.insert_portfolio_object('Bitmex', summary) 
             # print json.dumps(balance,  indent=2)
 
-    def load_bittrex_accounts(self):
+
+    # def load_bittrex_accounts(self):
+    #     self.bittrex    = ccxt.bittrex()         
+    def load_bittrex_accounts(self):       
         for account_email, config in bittrex_accounts.iteritems():
             self.bittrex    = ccxt.bittrex({'verbose': False, 'apiKey':config['API_KEY'], 'secret':config['API_SECRET']})           
             # USDT will show up in this balance, but not in B wallets UI in bittrex
@@ -166,7 +171,7 @@ class CryptoPortfolio:
                 usd_total += balances[key]
             else:
                 ticker = key+"/BTC"  # E.g. "ETH/BTC"
-                bittrex_btc_rate = self.str_to_XBT( self.bittrex.fetchTicker(ticker)['last'] )
+                bittrex_btc_rate = self.str_to_XBT( self.default_bittrex.fetchTicker(ticker)['last'] )
                 btc_value = balances[key] * bittrex_btc_rate
 
                 bittrex_btc_rate_str = "%.8f" %  bittrex_btc_rate
@@ -198,8 +203,8 @@ if __name__ == "__main__":
 
         print "\n\nYour summed holdings for each currency are: "
         btc_total, usd_total = PV.get_btc_usd_totals(balances)
-        # btc_price = Decimal('13500') # Placeholder value while BTC swings wildly on Dec 9th
-        btc_price = PV.str_to_XBT( PV.bittrex.fetchTicker('BTC/USDT')['last'] )
+        btc_price = manual_btc_price # Decimal('18900') # Placeholder value while BTC swings wildly on Dec 9th
+        # btc_price = PV.str_to_XBT( PV.default_bittrex.fetchTicker('BTC/USDT')['last'] )
 
         btc_usd_value = (btc_total * btc_price) 
         portfolio_value = btc_usd_value + usd_total
