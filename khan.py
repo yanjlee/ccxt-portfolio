@@ -6,7 +6,7 @@ import sys
 import time
 from decimal import *
 
-from settings import bitmex_accounts, gdax_accounts, coinbase_accounts, gemini_accounts, bittrex_accounts
+from settings import binance_accounts, bitmex_accounts, gdax_accounts, coinbase_accounts, gemini_accounts, bittrex_accounts
 from settings import total_deposits, manual_holding_entries, manual_btc_price
 # Coinbase
 from coinbase.wallet.client import Client as CB_Client
@@ -20,13 +20,14 @@ class CryptoPortfolio:
     def __init__(self):
 
         self.portfolio_info = manual_holding_entries
-        self.portfolio_info.update({
-            "Bitmex":   [],
-            "Gemini":   [],
-            "Coinbase": [],
-            "GDAX":     [],
-            "Bittrex":  []
-        })
+        # self.portfolio_info.update({
+            # "Bitmex":   [],
+            # "Gemini":   [],
+            # "Coinbase": [],
+            # "GDAX":     [],
+            # "Bittrex":  [],
+            # "Binance":  []
+        # })
         
         self.bitmex     = None # Using multiple accounts will leave the last Conn assigned here
         self.bittrex    = None  
@@ -37,6 +38,7 @@ class CryptoPortfolio:
 
         self.bitmex_margin_stake = Decimal(0)
             
+        self.load_binance_accounts()
         try: self.load_bitmex_accounts() 
         except Exception, e: print("Bitmex error: "+str(e) )
         self.load_coinbase_accounts()
@@ -45,6 +47,10 @@ class CryptoPortfolio:
         self.load_bittrex_accounts()
 
     def insert_portfolio_object(self, exchange, obj):
+        # Initiate Portfolio Info object
+        if exchange not in self.portfolio_info:
+            self.portfolio_info[exchange] = []
+
         if type(obj) == list: # ["GDAX", "Coinbase", "Gemini"]
             self.portfolio_info[exchange] += obj # Add {}s from []
         elif type(obj)==dict:
@@ -65,7 +71,18 @@ class CryptoPortfolio:
 
             self.insert_portfolio_object('Bitmex', summary) 
             # print json.dumps(balance,  indent=2)
+       
+    def load_binance_accounts(self):       
+        for account_email, config in binance_accounts.iteritems():
+            self.binance    = ccxt.binance({'verbose': False, 'apiKey':config['API_KEY'], 'secret':config['API_SECRET']})           
+            # USDT will show up in this balance, but not in B wallets UI in bittrex
+            balances = self.binance.fetchBalance() 
+            balance_totals = balances['total'] # Keyed on coin
+            for coin in balance_totals.keys():
+                if balance_totals[coin] == 0:
+                    del balance_totals[coin]
 
+            self.insert_portfolio_object('Binance', balance_totals)
 
     # def load_bittrex_accounts(self):
     #     self.bittrex    = ccxt.bittrex()         
@@ -170,33 +187,29 @@ class CryptoPortfolio:
             elif key=="USDT":
                 usd_total += balances[key]
             else:
-                ticker = key+"/BTC"  # E.g. "ETH/BTC"
-                bittrex_btc_rate = self.str_to_XBT( self.default_bittrex.fetchTicker(ticker)['last'] )
-                btc_value = balances[key] * bittrex_btc_rate
+                if key in ["ETF"]:
+                    continue
+                # Query Binance for non-bittrex holdins
+                elif key in ["ENJ","TRX", "VEN","QSP"]: # Binance only non-bittrex coins
+                    # self.binance.fetchTicker('TRX/BTC')
+                    # import pdb; pdb.set_trace()
+                    ticker = key+"/BTC"  # E.g. "ETH_BTC"
+                    btc_rate = self.str_to_XBT( self.binance.fetchTicker(ticker)['last'] )
+                    btc_value = balances[key] * btc_rate
 
-                bittrex_btc_rate_str = "%.8f" %  bittrex_btc_rate
+                else:
+                    ticker = key+"/BTC"  # E.g. "ETH/BTC"
+                    btc_rate = self.str_to_XBT( self.default_bittrex.fetchTicker(ticker)['last'] )
+                    btc_value = balances[key] * btc_rate
+
+                btc_rate_str = "%.8f" %  btc_rate
                 btc_value_str = "%.8f" %  btc_value
-                print "%s: %s at %s BTC each is worth %s BTC" % (key.rjust(5), str(round(balances[key],2)).rjust(10), bittrex_btc_rate_str, btc_value_str)
+                print "%s: %s at %s BTC each is worth %s BTC" % (key.rjust(5), str(round(balances[key],2)).rjust(10), btc_rate_str, btc_value_str)
                 btc_total+=btc_value
 
         return btc_total, usd_total
 
-## ToDo: Trade history profit calculations
-# class CryptoTradeHistory(CryptoPortfolio):
-#     def __init__(self):
-#         pass
-
-#     def test(self):
-#         print "Hi"
-#         print "PV.portfolio_info"
-#         pass
-
-if __name__ == "__main__":
-
-    PV = CryptoPortfolio()
-    balances = PV.get_sum_balances() 
-
-    try:
+    def run(self):
         print "\n\nYour holdings in each account are: "
         print json.dumps(PV.portfolio_info,  indent=2)
 
@@ -213,9 +226,9 @@ if __name__ == "__main__":
         print "%s BTC: ($%d) + $%d => %d" %( "%.3f"%btc_total, btc_usd_value, usd_total, portfolio_value)
         print "This is using a BTC value of %d" % (btc_price)
 
-        total_deposits = sum( total_deposits.values() )
-        profits = portfolio_value- Decimal(total_deposits)
-        print "\n\n Your total USD Deposits have been: $%d" % (total_deposits)
+        deposits = sum( total_deposits.values() )
+        profits = portfolio_value- Decimal(deposits)
+        print "\n\n Your total USD Deposits have been: $%d" % (deposits)
         print "This yields a total profit of: ** $%d **" % (profits)
         if PV.bitmex_margin_stake > 0:
             staked_usd = btc_price*PV.bitmex_margin_stake
@@ -223,7 +236,22 @@ if __name__ == "__main__":
 
         print "\n\nThis is based on current holdings and price of those holdings when converted to BTC."
         print "So it is net of all transaction fees\n"
-        
+
+## ToDo: Trade history profit calculations
+# class CryptoTradeHistory(CryptoPortfolio):
+#     def __init__(self):
+#         pass
+
+#     def test(self):
+#         print "Hi"
+#         print "PV.portfolio_info"
+#         pass
+
+if __name__ == "__main__":
+    try:
+        PV = CryptoPortfolio()
+        balances = PV.get_sum_balances() 
+        PV.run()
         ## Print holdings on each Exchange
         # print json.dumps(PV.portfolio_info,  indent=2)
         # PV.print_sums( balances )

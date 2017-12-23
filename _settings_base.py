@@ -2,7 +2,7 @@
 from decimal import *
 
 # Update this.
-manual_btc_price = Decimal('18000')
+manual_btc_price = Decimal('18900')
 
 ## Insert any offline wallet balances or balances on Exchange currently down
 manual_holding_entries = {
@@ -19,6 +19,14 @@ total_deposits = {
     "coinbase": 1014.90 + 313+4301 + 918.49+1500  -1500-423.70 + 1525 + 1087
     # ,"gdax": 123 + 456
     ,"gemini": 10000
+}
+
+
+binance_accounts = {
+    # "your_email+bitmex@gmail.com": {
+    #     'API_KEY': 'abc123',
+    #     'API_SECRET': 'efg1234_789'
+    # },
 }
 
 ## Multiple accounts are supported for all exchanges. Use the same format shown for Bitmex.
