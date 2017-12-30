@@ -5,6 +5,7 @@ import csv
 import sys
 import time
 from decimal import *
+import datetime
 
 from settings import binance_accounts, bitmex_accounts, gdax_accounts, coinbase_accounts, gemini_accounts, bittrex_accounts
 from settings import total_deposits, manual_holding_entries, manual_btc_price
@@ -18,7 +19,7 @@ import ccxt
 
 class CryptoPortfolio:
     def __init__(self):
-
+        self.output =  open('khan_log.txt','a+')
         self.portfolio_info = manual_holding_entries
         # self.portfolio_info.update({
             # "Bitmex":   [],
@@ -190,7 +191,7 @@ class CryptoPortfolio:
                 if key in ["ETF"]:
                     continue
                 # Query Binance for non-bittrex holdins
-                elif key in ["ENJ","TRX", "VEN","QSP"]: # Binance only non-bittrex coins
+                elif key in ["ENJ","TRX", "VEN","QSP","BNB"]: # Binance only non-bittrex coins
                     # self.binance.fetchTicker('TRX/BTC')
                     # import pdb; pdb.set_trace()
                     ticker = key+"/BTC"  # E.g. "ETH_BTC"
@@ -204,7 +205,8 @@ class CryptoPortfolio:
 
                 btc_rate_str = "%.8f" %  btc_rate
                 btc_value_str = "%.8f" %  btc_value
-                print "%s: %s at %s BTC each is worth %s BTC" % (key.rjust(5), str(round(balances[key],2)).rjust(10), btc_rate_str, btc_value_str)
+                if (btc_value > 0.0002):
+                    print "%s: %s at %s BTC each is worth %s BTC" % (key.rjust(5), str(round(balances[key],2)).rjust(10), btc_rate_str, btc_value_str)
                 btc_total+=btc_value
 
         return btc_total, usd_total
@@ -222,19 +224,30 @@ class CryptoPortfolio:
         btc_usd_value = (btc_total * btc_price) 
         portfolio_value = btc_usd_value + usd_total
 
-        print "\n\n Your total Portfolio Value is estimated at: "
-        print "%s BTC: ($%d) + $%d => %d" %( "%.3f"%btc_total, btc_usd_value, usd_total, portfolio_value)
-        print "This is using a BTC value of %d" % (btc_price)
+        portfolio_value_description_str = "%s BTC: ($%d) + $%d => %d" %( "%.3f"%btc_total, btc_usd_value, usd_total, portfolio_value)
+        portfolio_btc_price_str = "This is using a BTC value of %d" % (btc_price)
+
+        runtime_str = datetime.datetime.now().strftime("%B %d, %Y: %I:%M%p ")
+        self.output.write('\n\n'+ runtime_str)
+        self.output.write('\n' + "Your total Portfolio Value is estimated at: ")
+        self.output.write('\n' + portfolio_value_description_str)
+        self.output.write('\n' + portfolio_btc_price_str)
+        self.output.close()
+
+        print "\n\n" + runtime_str
+        print "\n" + "Your total Portfolio Value is estimated at: "
+        print portfolio_value_description_str
+        print portfolio_btc_price_str
 
         deposits = sum( total_deposits.values() )
         profits = portfolio_value- Decimal(deposits)
-        print "\n\n Your total USD Deposits have been: $%d" % (deposits)
+        print "\nYour total USD Deposits have been: $%d" % (deposits)
         print "This yields a total profit of: ** $%d **" % (profits)
         if PV.bitmex_margin_stake > 0:
             staked_usd = btc_price*PV.bitmex_margin_stake
             print "Currently staked bitmex margin is %d, ($%d) for profit of $%d" % (PV.bitmex_margin_stake, staked_usd, profits+staked_usd)
 
-        print "\n\nThis is based on current holdings and price of those holdings when converted to BTC."
+        print "\nThis is based on current holdings and price of those holdings when converted to BTC."
         print "So it is net of all transaction fees\n"
 
 ## ToDo: Trade history profit calculations
