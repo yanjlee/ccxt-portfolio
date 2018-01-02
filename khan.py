@@ -43,6 +43,7 @@ class CryptoPortfolio:
         try: self.load_bitmex_accounts() 
         except Exception, e: print("Bitmex error: "+str(e) )
         self.load_coinbase_accounts()
+        # self.load_cryptopia_accounts()
         self.load_gdax_accounts()
         self.load_gemini_accounts()
         self.load_bittrex_accounts()
@@ -191,7 +192,7 @@ class CryptoPortfolio:
                 if key in ["ETF"]:
                     continue
                 # Query Binance for non-bittrex holdins
-                elif key in ["ENJ","TRX", "VEN","QSP","BNB"]: # Binance only non-bittrex coins
+                elif key in ["ENJ","TRX", "VEN","QSP","BNB","ZRX"]: # Binance only non-bittrex coins
                     # self.binance.fetchTicker('TRX/BTC')
                     # import pdb; pdb.set_trace()
                     ticker = key+"/BTC"  # E.g. "ETH_BTC"
@@ -218,14 +219,14 @@ class CryptoPortfolio:
 
         print "\n\nYour summed holdings for each currency are: "
         btc_total, usd_total = PV.get_btc_usd_totals(balances)
-        btc_price = manual_btc_price # Decimal('18900') # Placeholder value while BTC swings wildly on Dec 9th
-        # btc_price = PV.str_to_XBT( PV.default_bittrex.fetchTicker('BTC/USDT')['last'] )
-
+        # btc_price = manual_btc_price # Decimal('18900') # Placeholder value while BTC swings wildly on Dec 9th
+        btc_price = PV.str_to_XBT( PV.gdax.fetchTicker('BTC/USD')['last'] )
+        # import pdb; pdb.set_trace()
         btc_usd_value = (btc_total * btc_price) 
         portfolio_value = btc_usd_value + usd_total
 
         portfolio_value_description_str = "%s BTC: ($%d) + $%d => %d" %( "%.3f"%btc_total, btc_usd_value, usd_total, portfolio_value)
-        portfolio_btc_price_str = "This is using a BTC value of %d" % (btc_price)
+        portfolio_btc_price_str = "GDAX BTC value: %d" % ( round(btc_price,2) )
 
         runtime_str = datetime.datetime.now().strftime("%B %d, %Y: %I:%M%p ")
         self.output.write('\n\n'+ runtime_str)
@@ -241,8 +242,9 @@ class CryptoPortfolio:
 
         deposits = sum( total_deposits.values() )
         profits = portfolio_value- Decimal(deposits)
+        profit_pct = ((portfolio_value / Decimal(deposits))  -1)*100
         print "\nYour total USD Deposits have been: $%d" % (deposits)
-        print "This yields a total profit of: ** $%d **" % (profits)
+        print "This yields a total profit of:  ** $%d ** (%d%%)"  % (profits, profit_pct)
         if PV.bitmex_margin_stake > 0:
             staked_usd = btc_price*PV.bitmex_margin_stake
             print "Currently staked bitmex margin is %d, ($%d) for profit of $%d" % (PV.bitmex_margin_stake, staked_usd, profits+staked_usd)
