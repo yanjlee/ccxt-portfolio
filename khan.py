@@ -8,6 +8,7 @@ from decimal import *
 import datetime
 
 from settings import binance_accounts, bitmex_accounts, gdax_accounts, coinbase_accounts, gemini_accounts, bittrex_accounts
+from settings import cryptopia_accounts
 from settings import total_deposits, manual_holding_entries, manual_btc_price
 # Coinbase
 from coinbase.wallet.client import Client as CB_Client
@@ -20,22 +21,19 @@ import ccxt
 class CryptoPortfolio:
     def __init__(self):
         self.output =  open('khan_log.txt','a+')
+
+        # Preload holdings not reflected in API Key portfolios. (coins in transit, hard wallet, etc.)
         self.portfolio_info = manual_holding_entries
-        # self.portfolio_info.update({
-            # "Bitmex":   [],
-            # "Gemini":   [],
-            # "Coinbase": [],
-            # "GDAX":     [],
-            # "Bittrex":  [],
-            # "Binance":  []
-        # })
         
+        # 
         self.bitmex     = None # Using multiple accounts will leave the last Conn assigned here
         self.bittrex    = None  
         self.default_bittrex = ccxt.bittrex()
         self.cb_client  = None
+        self.cryptopia  = None
         self.gdax       = None
         self.gemini     = None
+        self.cryptopia  = None
 
         self.bitmex_margin_stake = Decimal(0)
             
@@ -43,7 +41,7 @@ class CryptoPortfolio:
         try: self.load_bitmex_accounts() 
         except Exception, e: print("Bitmex error: "+str(e) )
         self.load_coinbase_accounts()
-        # self.load_cryptopia_accounts()
+        self.load_cryptopia_accounts()
         self.load_gdax_accounts()
         self.load_gemini_accounts()
         self.load_bittrex_accounts()
@@ -120,6 +118,18 @@ class CryptoPortfolio:
             # balances = coinbase.fetchBalance()
             # summary = balances['total']
 
+    def load_cryptopia_accounts(self):
+        for account_email, config in cryptopia_accounts.iteritems():
+            self.cryptopia = ccxt.cryptopia({'apiKey':config['API_KEY'], 'secret':config['API_SECRET'] })
+            
+            balances = self.cryptopia.fetchBalance()
+            summary = balances['total']
+            # Cryptopia returns all 0 balance entries. Filter them.
+            summary_no_zero_balances = {k: v for k, v in summary.items() if v != 0}
+
+            self.insert_portfolio_object('Cryptopia', summary_no_zero_balances)
+            # print json.dumps(accounts, indent=2)r
+
     def load_gdax_accounts(self):
         for account_email, config in gdax_accounts.iteritems():
             self.gdax       = ccxt.gdax({'apiKey':config['API_KEY'], 'secret':config['API_SECRET'], 'password':config['passphrase']})
@@ -180,6 +190,11 @@ class CryptoPortfolio:
         btc_total = Decimal(0)
         usd_total = Decimal(0)
         for key in balances.keys():
+            # Skip tiny amounts (e.g. for Binance & Cryptopia forks/airdrops)
+            if balances[key] < 1 and key not in ["BTC","XMR","ETH"]:
+                print "Skipping tiny coin: "+key
+                continue
+
             if key=="BTC":
                 btc_total += balances[key]
                 # import pdb; pdb.set_trace()
@@ -198,6 +213,10 @@ class CryptoPortfolio:
                     ticker = key+"/BTC"  # E.g. "ETH_BTC"
                     btc_rate = self.str_to_XBT( self.binance.fetchTicker(ticker)['last'] )
                     btc_value = balances[key] * btc_rate
+                elif key in ["XBY", "LINDA", "GRWI"]:
+                    ticker = key+"/BTC"  # E.g. "ETH_BTC"
+                    btc_rate = self.str_to_XBT( self.cryptopia.fetchTicker(ticker)['last'] )
+                    btc_value = balances[key] * btc_rate
 
                 else:
                     ticker = key+"/BTC"  # E.g. "ETH/BTC"
@@ -212,7 +231,7 @@ class CryptoPortfolio:
 
         return btc_total, usd_total
 
-    def run(self):
+    def run(self, balances):
         print "\n\nYour holdings in each account are: "
         print json.dumps(PV.portfolio_info,  indent=2)
 
@@ -266,7 +285,7 @@ if __name__ == "__main__":
     try:
         PV = CryptoPortfolio()
         balances = PV.get_sum_balances() 
-        PV.run()
+        PV.run(balances)
         ## Print holdings on each Exchange
         # print json.dumps(PV.portfolio_info,  indent=2)
         # PV.print_sums( balances )
