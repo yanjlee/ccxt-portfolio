@@ -9,11 +9,12 @@ import datetime
 
 from settings import binance_accounts, bitmex_accounts, gdax_accounts, coinbase_accounts, gemini_accounts, bittrex_accounts
 from settings import cryptopia_accounts
-from settings import total_deposits, manual_holding_entries, manual_btc_price
+from settings import total_deposits, manual_holding_entries # , manual_btc_price
 # Coinbase
 from coinbase.wallet.client import Client as CB_Client
 
 import ccxt
+## Originally built with  ccxt (1.10.337)
 
 # Using an array will allow the summation of accounts across people and emails
 # Potentially useful for Fund-level accounting or summing portfolio of partners
@@ -24,10 +25,10 @@ class CryptoPortfolio:
 
         # Preload holdings not reflected in API Key portfolios. (coins in transit, hard wallet, etc.)
         self.portfolio_info = manual_holding_entries
-        
-        # 
+
+        #
         self.bitmex     = None # Using multiple accounts will leave the last Conn assigned here
-        self.bittrex    = None  
+        self.bittrex    = None
         self.default_bittrex = ccxt.bittrex()
         self.cb_client  = None
         self.cryptopia  = None
@@ -36,15 +37,33 @@ class CryptoPortfolio:
         self.cryptopia  = None
 
         self.bitmex_margin_stake = Decimal(0)
-            
-        self.load_binance_accounts()
-        try: self.load_bitmex_accounts() 
-        except Exception, e: print("Bitmex error: "+str(e) )
-        self.load_coinbase_accounts()
-        self.load_cryptopia_accounts()
-        self.load_gdax_accounts()
-        self.load_gemini_accounts()
-        self.load_bittrex_accounts()
+
+        # exchanges = {
+        #     'binance': self.load_binance_accounts,
+        #     'bitmex' :
+
+        # }
+
+        self.load_binance_accounts();
+        # except Exception, e: self.banner("Binance error: "+str(e) )
+        try: self.load_bitmex_accounts()
+        except Exception, e: self.banner("Bitmex error: "+str(e) )
+        try: self.load_coinbase_accounts()
+        except Exception, e: self.banner("Coinbase error: "+str(e) )
+        try: self.load_cryptopia_accounts()
+        except Exception, e: self.banner("Cryptopia error: "+str(e) )
+        try: self.load_gdax_accounts()
+        except Exception, e: self.banner("GDAX error: "+str(e) )
+        try: self.load_gemini_accounts()
+        except Exception, e: self.banner("Gemini error: "+str(e) )
+        try: self.load_bittrex_accounts()
+        except Exception, e: self.banner("Bittrex error: "+str(e) )
+
+    @staticmethod
+    def banner(str):
+        print "*" * 25
+        print "*  "+str+ "   ** "
+        print "*" * 25
 
     def insert_portfolio_object(self, exchange, obj):
         # Initiate Portfolio Info object
@@ -69,14 +88,14 @@ class CryptoPortfolio:
             # Use all info here, want to see what is open on margins
             summary = {'BTC': balance['BTC'] }
 
-            self.insert_portfolio_object('Bitmex', summary) 
+            self.insert_portfolio_object('Bitmex', summary)
             # print json.dumps(balance,  indent=2)
-       
-    def load_binance_accounts(self):       
+
+    def load_binance_accounts(self):
         for account_email, config in binance_accounts.iteritems():
-            self.binance    = ccxt.binance({'verbose': False, 'apiKey':config['API_KEY'], 'secret':config['API_SECRET']})           
+            self.binance    = ccxt.binance({'verbose': False, 'apiKey':config['API_KEY'], 'secret':config['API_SECRET']})
             # USDT will show up in this balance, but not in B wallets UI in bittrex
-            balances = self.binance.fetchBalance() 
+            balances = self.binance.fetchBalance()
             balance_totals = balances['total'] # Keyed on coin
             for coin in balance_totals.keys():
                 if balance_totals[coin] == 0:
@@ -85,12 +104,12 @@ class CryptoPortfolio:
             self.insert_portfolio_object('Binance', balance_totals)
 
     # def load_bittrex_accounts(self):
-    #     self.bittrex    = ccxt.bittrex()         
-    def load_bittrex_accounts(self):       
+    #     self.bittrex    = ccxt.bittrex()
+    def load_bittrex_accounts(self):
         for account_email, config in bittrex_accounts.iteritems():
-            self.bittrex    = ccxt.bittrex({'verbose': False, 'apiKey':config['API_KEY'], 'secret':config['API_SECRET']})           
+            self.bittrex    = ccxt.bittrex({'verbose': False, 'apiKey':config['API_KEY'], 'secret':config['API_SECRET']})
             # USDT will show up in this balance, but not in B wallets UI in bittrex
-            balances = self.bittrex.fetchBalance() 
+            balances = self.bittrex.fetchBalance()
             balance_totals = balances['total'] # Keyed on coin
             for coin in balance_totals.keys():
                 if balance_totals[coin] == 0:
@@ -111,7 +130,7 @@ class CryptoPortfolio:
                 amount = acct['balance']['amount']
                 summary[ curr ] = amount
 
-            self.insert_portfolio_object('Coinbase', summary) 
+            self.insert_portfolio_object('Coinbase', summary)
 
             ## CCXT does *not* support coinbase
             # coinbase = ccxt.coinbase({'apiKey':config['API_KEY'], 'secret':config['API_SECRET']})
@@ -121,7 +140,7 @@ class CryptoPortfolio:
     def load_cryptopia_accounts(self):
         for account_email, config in cryptopia_accounts.iteritems():
             self.cryptopia = ccxt.cryptopia({'apiKey':config['API_KEY'], 'secret':config['API_SECRET'] })
-            
+
             balances = self.cryptopia.fetchBalance()
             summary = balances['total']
             # Cryptopia returns all 0 balance entries. Filter them.
@@ -133,7 +152,7 @@ class CryptoPortfolio:
     def load_gdax_accounts(self):
         for account_email, config in gdax_accounts.iteritems():
             self.gdax       = ccxt.gdax({'apiKey':config['API_KEY'], 'secret':config['API_SECRET'], 'password':config['passphrase']})
-            
+
             balances = self.gdax.fetchBalance()
             summary = balances['total']
 
@@ -143,7 +162,7 @@ class CryptoPortfolio:
     def load_gemini_accounts(self):
         for account_email, config in gemini_accounts.iteritems():
             self.gemini     = ccxt.gemini({'apiKey':config['API_KEY'], 'secret':config['API_SECRET']})
-        
+
             balances = self.gemini.fetchBalance()
             summary = balances['total']
 
@@ -165,9 +184,9 @@ class CryptoPortfolio:
                         else:
                             coin_val = self.str_to_XBT( account[coin] )
 
-                        if coin in sums: 
+                        if coin in sums:
                             sums[coin] += coin_val
-                        else: 
+                        else:
                             sums[coin] = coin_val
                     except Exception, e:
                         import pdb; pdb.set_trace()
@@ -204,23 +223,29 @@ class CryptoPortfolio:
             elif key=="USDT":
                 usd_total += balances[key]
             else:
-                if key in ["ETF"]:
+                if key in ["1337", "IGNIS"]:
+                    continue # LTC only pairing on cryptopia
+                elif key in ["ETF"]:
                     continue
                 # Query Binance for non-bittrex holdins
-                elif key in ["ENJ","TRX", "VEN","QSP","BNB","ZRX"]: # Binance only non-bittrex coins
+                elif key in ["APPC", "GTO","ENJ","TRX", "VEN","QSP","BNB","ZRX", "IOTA", "BQX"]: # Binance only non-bittrex coins
                     # self.binance.fetchTicker('TRX/BTC')
                     # import pdb; pdb.set_trace()
                     ticker = key+"/BTC"  # E.g. "ETH_BTC"
                     btc_rate = self.str_to_XBT( self.binance.fetchTicker(ticker)['last'] )
                     btc_value = balances[key] * btc_rate
-                elif key in ["XBY", "LINDA", "GRWI"]:
+                elif key in ["XBY", "LINDA", "GRWI", "SPANK"]:
                     ticker = key+"/BTC"  # E.g. "ETH_BTC"
                     btc_rate = self.str_to_XBT( self.cryptopia.fetchTicker(ticker)['last'] )
                     btc_value = balances[key] * btc_rate
 
                 else:
                     ticker = key+"/BTC"  # E.g. "ETH/BTC"
-                    btc_rate = self.str_to_XBT( self.default_bittrex.fetchTicker(ticker)['last'] )
+                    try:
+                        btc_rate = self.str_to_XBT( self.default_bittrex.fetchTicker(ticker)['last'] )
+                    except Exception, e:
+                        btc_rate = self.str_to_XBT( self.cryptopia.fetchTicker(ticker)['last'] )
+
                     btc_value = balances[key] * btc_rate
 
                 btc_rate_str = "%.8f" %  btc_rate
@@ -241,23 +266,31 @@ class CryptoPortfolio:
         # btc_price = manual_btc_price # Decimal('18900') # Placeholder value while BTC swings wildly on Dec 9th
         btc_price = PV.str_to_XBT( PV.gdax.fetchTicker('BTC/USD')['last'] )
         # import pdb; pdb.set_trace()
-        btc_usd_value = (btc_total * btc_price) 
+        btc_usd_value = (btc_total * btc_price)
         portfolio_value = btc_usd_value + usd_total
 
         portfolio_value_description_str = "%s BTC: ($%d) + $%d => %d" %( "%.3f"%btc_total, btc_usd_value, usd_total, portfolio_value)
-        portfolio_btc_price_str = "GDAX BTC value: %d" % ( round(btc_price,2) )
+        portfolio_btc_price_str = "GDAX BTC value: $%d" % ( round(btc_price,2) )
 
         runtime_str = datetime.datetime.now().strftime("%B %d, %Y: %I:%M%p ")
-        self.output.write('\n\n'+ runtime_str)
-        self.output.write('\n' + "Your total Portfolio Value is estimated at: ")
-        self.output.write('\n' + portfolio_value_description_str)
-        self.output.write('\n' + portfolio_btc_price_str)
+        self.output.write('\n\n'+ runtime_str + " -- "+portfolio_value_description_str)
+        # self.output.write('\n' + "Your total Portfolio Value is estimated at: ")
+        # self.output.write('\n' + portfolio_value_description_str)
+        self.output.write('\n'+ portfolio_btc_price_str)
+        self.output.write('\n'+ str(manual_holding_entries) )
+        self.output.write('\n'+ str(total_deposits) )
         self.output.close()
 
         print "\n\n" + runtime_str
         print "\n" + "Your total Portfolio Value is estimated at: "
         print portfolio_value_description_str
         print portfolio_btc_price_str
+
+
+    #     outside_assets = manual_holding_entries['James']
+    # , "James"  : [{"BCH": -0.625,"LTC": -10,"USD":-10500}] # Approximate cash-value reduction
+    # , "Greg"   : [{"USD":-1200}]
+    # , "Matt"   : [{"USD":-2000}]
 
         deposits = sum( total_deposits.values() )
         profits = portfolio_value- Decimal(deposits)
@@ -284,7 +317,10 @@ class CryptoPortfolio:
 if __name__ == "__main__":
     try:
         PV = CryptoPortfolio()
-        balances = PV.get_sum_balances() 
+        print "Getting Balances"
+        balances = PV.get_sum_balances()
+
+        print "Aggregating holdings and Calculating profits"
         PV.run(balances)
         ## Print holdings on each Exchange
         # print json.dumps(PV.portfolio_info,  indent=2)
