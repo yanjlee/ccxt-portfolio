@@ -1,24 +1,63 @@
 #!/usr/bin/env python
-from setuptools import setup
-from os.path import dirname, join, isfile
-from shutil import copyfile
+# -*- coding: utf-8 -*-
+# @Name    : setup.py
+# @Author  : yanlee
 
-here = dirname(__file__)
+import setuptools
+import shutil
 
-setup(name='herald-cap-money-printing-toolbelt',
-      version='0.1',
-      description='Simple scripts for viewing your growing crypto wealth.',
-      long_description=open(join(here, 'README.md')).read(),
-      author='Kirk',
-      author_email='kirkportas@gmail.com',
-      url='',
-      install_requires=[
-          'requests',
-          'ccxt',
-          'coinbase'
-      ]
-      )
+# 删除dist/目录
+shutil.rmtree('dist', ignore_errors=True)
 
-if not isfile('settings.py'):
-    copyfile('_settings_base.py', 'settings.py')
-print("\n**** \nImportant!!!\nEdit settings.py before starting the script.\n****")
+setuptools.setup(
+    name="ccxt-portfolio-pro",
+    version="1.3.1",
+    author="yanjlee",
+    author_email="yanjlee@163.com",
+    description="This version is currently using Bittrex BTC price to value the portfolio.Future options coming soon..",  # 模块简介
+    install_requires=[
+        'requests',
+        'faker',
+        'execjs',
+        'loguru',
+        'base64',
+        'hashlib',
+        'Crypto',
+        'pandas',
+        'fuzzywuzzy',
+        'httpx',
+        'Pillow',
+        'playwright',
+        'PyExecJS',
+        'redis',
+        'fastapi',
+        'uvicorn',
+        'APScheduler',
+        'beautifulsoup4',
+        'bs4',
+        'certifi',
+        'clickhouse-driver',
+        'curl-cffi',
+        'DrissionPage',
+        'fake-useragent',
+        'Flask',
+        'Flask-APScheduler',
+        'Flask-Cors',
+        'frida',
+        'gevent',
+        'httpx',
+        'Jinja2',
+        'langchain',
+        'langchain-community',
+        'suiutils-py',
+    ],
+    long_description=open(r'readme.md', encoding='utf-8').read(),  # 读取readme自述文件
+    long_description_content_type="text/markdown",
+    url="https://github.com/yanjlee/ccxt-portfolio",  # 模块github地址
+    packages=setuptools.find_packages(),     # 自动列出项目下的包
+    classifiers=[
+        "Programming Language :: Python :: 3",
+        "License :: OSI Approved :: MIT License",   # 开源许可证
+        "Operating System :: OS Independent",      # 这里的定义是系统无关（全平台兼容），如果你的包只能在部分特定系统上运行，需要修改。
+    ],
+)
